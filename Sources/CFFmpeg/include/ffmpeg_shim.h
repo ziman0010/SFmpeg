@@ -1,20 +1,22 @@
-#ifndef AVUTIL_SHIM_H
-#define AVUTIL_SHIM_H
+#ifndef FFMPEG_SHIM_H
+#define FFMPEG_SHIM_H
+
+// FFmpeg 头文件聚合
 
 #include <errno.h>
 #include <stddef.h>
-#include <libavutil/avutil.h>
-#include <libavutil/common.h>
-#include <libavutil/error.h>
-#include <libavutil/opt.h>
-#include <libavutil/file.h>
-#include <libavutil/log.h>
-#include <libavutil/timestamp.h>
-#include <libavutil/pixdesc.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/md5.h>
-#include <libavutil/mastering_display_metadata.h>
+#include "libavutil/avutil.h"
+#include "libavutil/common.h"
+#include "libavutil/error.h"
+#include "libavutil/opt.h"
+#include "libavutil/file.h"
+#include "libavutil/log.h"
+#include "libavutil/timestamp.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/channel_layout.h"
+#include "libavutil/md5.h"
+#include "libavutil/mastering_display_metadata.h"
 
 static const int64_t swift_AV_NOPTS_VALUE = AV_NOPTS_VALUE;
 
@@ -51,11 +53,11 @@ static const AVChannelLayout AVChannelLayout22Point2        = (AVChannelLayout)A
 
 /* error handling */
 static inline int swift_AVERROR(int errnum) {
-  return AVERROR(errnum);
+    return AVERROR(errnum);
 }
 
 static inline int swift_AVUNERROR(int errnum) {
-  return AVUNERROR(errnum);
+    return AVUNERROR(errnum);
 }
 
 static const int swift_AVERROR_BSF_NOT_FOUND      = AVERROR_BSF_NOT_FOUND; ///< Bitstream filter not found
@@ -93,11 +95,31 @@ static const int swift_AVERROR_HTTP_OTHER_4XX     = AVERROR_HTTP_OTHER_4XX;
 static const int swift_AVERROR_HTTP_SERVER_ERROR  = AVERROR_HTTP_SERVER_ERROR;
 
 static inline void swift_log(void *avcl, int level, const char *msg) {
-  av_log(avcl, level, msg);
+    av_log(avcl, level, msg);
 }
 
 static inline uint32_t swift_FOURCC(char a, char b, char c, char d) {
- return MKTAG(a, b, c, d);
+    return MKTAG(a, b, c, d);
 }
 
-#endif /* AVUTIL_SHIM_H */
+
+#include "libavcodec/avcodec.h"
+#include "libavcodec/bsf.h"
+#include "libavcodec/version.h"
+
+#include "libavformat/avformat.h"
+#include "libavformat/avio.h"
+#include "libavformat/version.h"
+
+#include "libavfilter/avfilter.h"
+#include "libavfilter/buffersink.h"
+#include "libavfilter/buffersrc.h"
+#include "libavfilter/version.h"
+
+#include "libswresample/swresample.h"
+#include "libswresample/version.h"
+
+#include "libswscale/swscale.h"
+#include "libswscale/version.h"
+
+#endif // FFMPEG_SHIM_H
