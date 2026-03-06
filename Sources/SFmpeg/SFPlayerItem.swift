@@ -2,6 +2,25 @@ import AVFoundation
 import CoreMedia
 import os.log
 
+public typealias SampleBufferModifier = (CMReadySampleBuffer<DynamicContent>) -> CMReadySampleBuffer<DynamicContent>
+
+func enqueueReadySampleBufferWithModifier(
+    sampleBuffer: CMReadySampleBuffer<DynamicContent>,
+    renderer: AVQueuedSampleBufferRendering,
+    modifier: SampleBufferModifier?
+) {
+    if let modifier {
+        let modifiedSampleBuffer = modifier(sampleBuffer)
+        modifiedSampleBuffer.withUnsafeSampleBuffer() { sbuf in
+            renderer.enqueue(sbuf)
+        }
+    } else {
+        sampleBuffer.withUnsafeSampleBuffer() { sbuf in
+            renderer.enqueue(sbuf)
+        }
+    }
+}
+
 @Observable
 public class SFPlayerItem: @unchecked Sendable {
     private let logger = Logger(subsystem: "fun.sfmpeg", category: "SFPlayerItem")
@@ -28,19 +47,22 @@ public class SFPlayerItem: @unchecked Sendable {
     public let synchronizer = AVSampleBufferRenderSynchronizer()
     public let audioRenderer = AVSampleBufferAudioRenderer()
     
-    private var videoRenderer: AVQueuedSampleBufferRendering?
+    public var videoRenderer: AVQueuedSampleBufferRendering?
     
     private var assetReader: AVAssetReader?
     private var audioOutput: AVAssetReaderTrackOutput?
     private var videoOutput: AVAssetReaderTrackOutput?
-    
+
+    public var sampleBufferModifier: SampleBufferModifier?
+
     private var audioFeedingTask: Task<Void, Never>?
     private var videoFeedingTask: Task<Void, Never>?
     
     private var isSeeking = false
 
-    public init(asset: AVAsset) {
+    public init(asset: AVAsset, _ sampleBufferModifier: SampleBufferModifier? = nil) {
         self.asset = asset
+        self.sampleBufferModifier = sampleBufferModifier
         synchronizer.addRenderer(audioRenderer)
     }
     
@@ -124,9 +146,11 @@ public class SFPlayerItem: @unchecked Sendable {
                 if renderer.isReadyForMoreMediaData {
                     if let readySampleBuffer = output.copyNextSampleBuffer() {
                         do {
-                            try readySampleBuffer.withUnsafeSampleBuffer { sampleBuffer in
-                                try renderer.enqueue(sampleBuffer)
-                            }
+                            enqueueReadySampleBufferWithModifier(
+                                sampleBuffer: readySampleBuffer,
+                                renderer: renderer,
+                                modifier: self?.sampleBufferModifier
+                            )
                         } catch {
                             logger.error("Failed to enqueue audio sample buffer: \(error)")
                         }
@@ -154,9 +178,11 @@ public class SFPlayerItem: @unchecked Sendable {
                 if renderer.isReadyForMoreMediaData {
                     if let readySampleBuffer = output.copyNextSampleBuffer() {
                         do {
-                            try readySampleBuffer.withUnsafeSampleBuffer { sampleBuffer in
-                                try renderer.enqueue(sampleBuffer)
-                            }
+                            enqueueReadySampleBufferWithModifier(
+                                sampleBuffer: readySampleBuffer,
+                                renderer: renderer,
+                                modifier: self?.sampleBufferModifier
+                            )
                         } catch {
                             logger.error("Failed to enqueue video sample buffer: \(error)")
                         }
@@ -180,6 +206,7 @@ public class SFPlayerItem: @unchecked Sendable {
         stopFeeding()
         
         synchronizer.setRate(0.0, time: currentTime)
+        logger.debug("Start seeking to \(time.seconds)")
 
         guard let reader = assetReader else { return false }
         
@@ -195,24 +222,40 @@ public class SFPlayerItem: @unchecked Sendable {
         videoRenderer?.flush()
 
         // Wait for the first video frame and get its PTS
-        guard let videoOutput else {
-            logger.critical("Video output is nil")
+        guard let audioOutput else {
+            logger.critical("Audio output is nil")
             return false
         }
-        guard let firstSampleBuffer = videoOutput.copyNextSampleBuffer() else {
+        guard let firstSampleBuffer = audioOutput.copyNextSampleBuffer() else {
             logger.error("Failed to get first video sample buffer after seek")
             return false
         }
-        let actualPTS = firstSampleBuffer.presentationTimeStamp
+        let audioPTS = firstSampleBuffer.presentationTimeStamp
+        logger.debug("After seek: first audio frame PTS: \(audioPTS.seconds)")
             // Enqueue the first frame
-        if let renderer = videoRenderer {
-            try? firstSampleBuffer.withUnsafeSampleBuffer { sampleBuffer in
-                try renderer.enqueue(sampleBuffer)
+        enqueueReadySampleBufferWithModifier(
+            sampleBuffer: firstSampleBuffer,
+            renderer: audioRenderer,
+            modifier: self.sampleBufferModifier
+        )
+        synchronizer.setRate(0.0, time: audioPTS)
+        if let firstVideoFrame = videoOutput?.copyNextSampleBuffer() {
+            let videoPTS = firstVideoFrame.presentationTimeStamp
+            logger.debug("After seek: first video frame PTS: \(videoPTS.seconds)")
+            if let videoRenderer {
+                enqueueReadySampleBufferWithModifier(
+                    sampleBuffer: firstVideoFrame,
+                    renderer: videoRenderer,
+                    modifier: self.sampleBufferModifier
+                )
+            }
+            if videoPTS > audioPTS {
+                synchronizer.setRate(0.0, time: videoPTS)
             }
         }
 
             // 使用实际 PTS 设置 synchronizer 时间
-        synchronizer.setRate(1.0, time: actualPTS)
+        synchronizer.rate = 1.0
 
         isSeeking = false
         startFeeding()
