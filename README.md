@@ -1,20 +1,24 @@
-# SwiftFFmpeg
+# SFmpeg
 
-A Swift wrapper for the FFmpeg API.
+A Swift wrapper for the FFmpeg API, adapted for **Swift 6 strict concurrency checking** with high-level abstractions for playing media files.
 
-> Note: SwiftFFmpeg is still in development, and the API is not guaranteed to be stable. It's subject to change without warning.
+> **Educational Purpose**: This project is primarily intended for learning and education. It provides a clear, Swift-idiomatic way to understand and work with FFmpeg's media processing capabilities.
+
+## Features
+
+- **Swift 6 Ready**: Fully adapted to Swift 6 strict concurrency checking for safe, concurrent code
+- **High-Level Abstractions**: Easy-to-use APIs like `SFPlayerItem` for playing media files without dealing with low-level FFmpeg details
+- **Low-Level Access**: Full access to FFmpeg's C API when you need fine-grained control
+
+> Note: SFmpeg is still in development, and the API is not guaranteed to be stable. It's subject to change without warning.
 
 ## Installation
 
-You should install [FFmpeg](http://ffmpeg.org/) (Requires FFmpeg 7.1 or higher) before use this library, on macOS, you can:
-
-```bash
-brew install ffmpeg
-```
+FFmpeg is already included in this repository as an XCFramework (downloaded from [avbuild](https://github.com/wang-bin/avbuild)), so no separate FFmpeg installation is required.
 
 ### Swift Package Manager
 
-SwiftFFmpeg primarily uses [SwiftPM](https://swift.org/package-manager/) as its build tool, so we recommend using that as well. If you want to depend on SwiftFFmpeg in your own project, it's as simple as adding a `dependencies` clause to your `Package.swift`:
+SFmpeg uses [SwiftPM](https://swift.org/package-manager/) as its build tool. To depend on SFmpeg in your project, add a `dependencies` clause to your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -26,7 +30,30 @@ dependencies: [
 
 - [API documentation](https://sunlubo.github.io/SwiftFFmpeg)
 
-## Usage
+## Quick Start: Playing Media Files
+
+The high-level `SFPlayerItem` abstraction makes it easy to work with media files:
+
+```swift
+import SFmpeg
+
+// Create a player item from a media file
+let playerItem = try SFPlayerItem(url: "path/to/media.mp4")
+
+// Access media information
+print("Duration: \(playerItem.duration) seconds")
+print("Video tracks: \(playerItem.videoTracks.count)")
+print("Audio tracks: \(playerItem.audioTracks.count)")
+
+// Decode frames for playback
+while let frame = try playerItem.decodeNextFrame() {
+    // Process or display the frame
+}
+```
+
+## Low-Level API Usage
+
+For more control, you can use the low-level FFmpeg wrappers directly:
 
 ```swift
 import Foundation
