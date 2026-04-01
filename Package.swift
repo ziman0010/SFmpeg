@@ -6,10 +6,7 @@ import PackageDescription
 let package = Package(
     name: "SFmpeg",
     platforms: [
-        .macOS(.v26),
-        .visionOS(.v26),
-        .iOS(.v26),
-        .tvOS(.v26)
+        .iOS(.v15)
     ],
     products: [
         .library(
